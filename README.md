@@ -18,6 +18,7 @@ Interactive Story Toolkit is a set of three applications designed to help you cr
 
 ## 📜 Scenario Editor (plot_editor.py)
 The Scenario Editor allows you to create and modify interactive story scenarios.
+![{644081C9-4E91-4AE5-B0B2-003AE10A9487}](https://github.com/user-attachments/assets/06521a9a-eb52-4408-979a-ee9f1a1b402e)
 
 ### Steps:
 - Create a new scenario or open an existing one (.json format).
@@ -28,6 +29,7 @@ The Scenario Editor allows you to create and modify interactive story scenarios.
 
 ## 🎮 Game Player (plot_game.py)
 The Game Player lets you experience your interactive story.
+![{BAAEBBB7-626F-4A1F-9881-A0FC75042DE2}](https://github.com/user-attachments/assets/35abda0a-6946-4bbe-aebf-466462437e2f)
 
 ### Steps:
 - Load a scenario (.json file).
@@ -38,6 +40,7 @@ The Game Player lets you experience your interactive story.
 
 ## 🌐 Scenario Visualizer (visio.py)
 The Scenario Visualizer helps you see the structure of your story as a graph.
+![{41BE17FD-3DCB-4E3C-A7F6-7DC6EC1794D8}](https://github.com/user-attachments/assets/9434de41-3bae-4fbf-9857-6ee121899954)
 
 ### Steps:
 - Load a scenario (.json file).
