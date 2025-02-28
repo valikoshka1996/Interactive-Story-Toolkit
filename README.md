@@ -40,7 +40,7 @@ The Game Player lets you experience your interactive story.
 
 ## 🌐 Scenario Visualizer (visio.py)
 The Scenario Visualizer helps you see the structure of your story as a graph.
-![{41BE17FD-3DCB-4E3C-A7F6-7DC6EC1794D8}](https://github.com/user-attachments/assets/9434de41-3bae-4fbf-9857-6ee121899954)
+![{2A579F67-ABFE-452D-8C1F-3B8BC3555709}](https://github.com/user-attachments/assets/e5f1afcf-4b77-41bc-9a67-d16e62fdf0e6)
 
 ### Steps:
 - Load a scenario (.json file).
