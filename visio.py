@@ -1,128 +1,140 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox, Canvas, Scrollbar, Toplevel
 import json
 import networkx as nx
+import matplotlib.pyplot as plt
+import tkinter as tk
+from tkinter import filedialog, messagebox
 
 class ScenarioVisualizer:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Візуалізатор сценарію")
-        self.root.geometry("400x200")
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.withdraw()  # Приховуємо головне вікно Tkinter
+        self.json_file = self.select_file()
         
-        tk.Button(self.root, text="Завантажити сценарій", command=self.load_scenario, font=("Arial", 12)).pack(pady=20)
-        
-    def load_scenario(self):
-        filename = filedialog.askopenfilename(filetypes=[("JSON файли", "*.json")])
-        if not filename:
+        if not self.json_file:
             return
-        try:
-            with open(filename, "r", encoding="utf-8") as f:
-                self.data = json.load(f)
-            self.open_graph_window()
-        except Exception as e:
-            messagebox.showerror("Помилка", f"Не вдалося завантажити сценарій: {e}")
-    
-    def open_graph_window(self):
-        self.graph_window = Toplevel(self.root)
-        self.graph_window.title("Граф сценарію")
-        self.graph_window.geometry("1200x800")
         
-        self.canvas_frame = tk.Frame(self.graph_window)
-        self.canvas_frame.pack(fill=tk.BOTH, expand=True)
+        self.data = self.load_scenario()
+        if not self.data:
+            return
         
-        self.canvas = Canvas(self.canvas_frame, bg="white", scrollregion=(0, 0, 2000, 2000))
-        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        self.scroll_x = Scrollbar(self.canvas_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
-        self.scroll_x.pack(side=tk.BOTTOM, fill=tk.X)
-        
-        self.scroll_y = Scrollbar(self.canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
-        self.scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        self.canvas.configure(xscrollcommand=self.scroll_x.set, yscrollcommand=self.scroll_y.set)
-        self.canvas.bind("<ButtonPress-1>", self.start_drag)
-        self.canvas.bind("<B1-Motion>", self.drag_node)
-        
-        self.draw_graph()
-    
-    def draw_graph(self):
         self.G = nx.DiGraph()
         self.pos = {}
-        self.node_items = {}
-        self.node_dragging = None
-        self.canvas.delete("all")
-        
-        if "scenes" not in self.data:
-            messagebox.showerror("Помилка", "Некоректний формат JSON-файлу!")
-            return
-        
-        scenes = self.data["scenes"]
-        
-        for scene_id, scene in scenes.items():
-            text = scene.get("text", "Без назви")
-            self.G.add_node(scene_id, label=text)
+        self.fig, self.ax = plt.subplots(figsize=(10, 6))
+
+    def select_file(self):
+        """Відкриває діалог вибору JSON-файлу."""
+        file_path = filedialog.askopenfilename(
+            title="Select a JSON Scenario File",
+            filetypes=[("JSON files", "*.json")]
+        )
+        return file_path
+
+    def load_scenario(self):
+        """Завантажує та перевіряє JSON-файл."""
+        if not self.json_file:
+            messagebox.showwarning("Warning", "No file selected!")
+            return None
+
+        try:
+            with open(self.json_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
             
-            for choice in scene.get("choices", []):
-                edge_label = choice.get("text", "")
-                
-                effects = [f"{attr}: {choice[attr]}" for attr in ["health", "strength", "money"] if attr in choice]
-                
-                if effects:
-                    edge_label += " (" + ", ".join(effects) + ")"
-                
-                self.G.add_edge(scene_id, choice["next_scene"], label=edge_label)
+            # Валідація структури JSON
+            if "character" not in data or "scenes" not in data:
+                raise ValueError("Invalid JSON format: Missing 'character' or 'scenes' key.")
+
+            if not isinstance(data["scenes"], dict):
+                raise ValueError("Invalid JSON format: 'scenes' should be a dictionary.")
+
+            for scene_id, scene in data["scenes"].items():
+                if "text" not in scene or "choices" not in scene:
+                    raise ValueError(f"Scene '{scene_id}' is missing 'text' or 'choices' keys.")
+
+                for choice in scene["choices"]:
+                    if "text" not in choice or "next_scene" not in choice:
+                        raise ValueError(f"Choice in scene '{scene_id}' is missing 'text' or 'next_scene'.")
+
+            return data
         
-        self.pos = nx.spring_layout(self.G, seed=42, k=0.8, scale=800)
-        
-        for node, (x, y) in self.pos.items():
-            x, y = x + 1000, y + 800  # Підняв граф трохи вище
-            node_id = self.canvas.create_oval(x-40, y-40, x+40, y+40, fill="#A3BE8C", tags=("node", node))
-            text_id = self.canvas.create_text(x, y, text=self.G.nodes[node].get('label', node), width=80, justify=tk.CENTER, tags=("text", node))
-            self.node_items[node] = (node_id, text_id)
-        
-        self.draw_edges()
-    
-    def draw_edges(self):
-        self.canvas.delete("edge")
+        except json.JSONDecodeError:
+            messagebox.showerror("Error", "Invalid JSON file format!")
+            return None
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+            return None
+
+    def build_graph(self):
+        """Створює граф із сцен."""
+        scenes = self.data["scenes"]
+
+        # Додаємо вузли (сцени)
+        for scene_id in scenes:
+            self.G.add_node(scene_id, label=scene_id)
+
+        # Додаємо стрілки (зв’язки між сценами)
+        for scene_id, scene_data in scenes.items():
+            for choice in scene_data["choices"]:
+                next_scene = choice["next_scene"]
+                if next_scene in scenes:
+                    self.G.add_edge(scene_id, next_scene, label=choice["text"])
+
+    def draw_graph(self):
+        """Малює граф із стрілками."""
+        self.ax.clear()
+        self.pos = nx.spring_layout(self.G, seed=42, k=1.2)
+
+        # Малюємо вузли (сцени)
+        nx.draw_networkx_nodes(self.G, self.pos, ax=self.ax, node_color="lightblue", node_size=2000)
+
+        # Малюємо зв’язки (орієнтовані стрілки)
+        nx.draw_networkx_edges(self.G, self.pos, ax=self.ax, edge_color="black", arrows=True, arrowsize=20)
+
+        # Додаємо підписи сцен
+        labels = {node: node for node in self.G.nodes}
+        nx.draw_networkx_labels(self.G, self.pos, ax=self.ax, labels=labels, font_size=10, font_weight="bold")
+
+        # Додаємо підписи до стрілок (текст вибору)
+        edge_labels = {(u, v): data["label"] for u, v, data in self.G.edges(data=True)}
+        nx.draw_networkx_edge_labels(self.G, self.pos, ax=self.ax, edge_labels=edge_labels, font_size=9, label_pos=0.5)
+
+        # Додаємо стрілки червоного кольору з напрямком
         for edge in self.G.edges:
             x1, y1 = self.pos[edge[0]]
             x2, y2 = self.pos[edge[1]]
-            x1, y1, x2, y2 = x1 + 1000, y1 + 800, x2 + 1000, y2 + 800
-            
-            self.canvas.create_line(x1, y1, x2, y2, arrow=tk.LAST, arrowshape=(20, 24, 8), fill="#D08770", width=3, tags="edge")
-            
-            label = self.G.edges[edge].get("label", "")
-            if label:
-                label_x = (x1 + x2) / 2
-                label_y = (y1 + y2) / 2
-                self.canvas.create_text(label_x, label_y, text=label, font=("Arial", 10), width=100, tags="edge")
-    
-    def start_drag(self, event):
-        item = self.canvas.find_closest(event.x, event.y)[0]
-        tags = self.canvas.gettags(item)
-        
-        if "node" in tags:
-            self.node_dragging = tags[1]
-            self.drag_offset_x = event.x
-            self.drag_offset_y = event.y
-    
-    def drag_node(self, event):
-        if self.node_dragging:
-            dx = event.x - self.drag_offset_x
-            dy = event.y - self.drag_offset_y
-            
-            node_id, text_id = self.node_items[self.node_dragging]
-            self.canvas.move(node_id, dx, dy)
-            self.canvas.move(text_id, dx, dy)
-            
-            x, y = self.pos[self.node_dragging]
-            self.pos[self.node_dragging] = (x + dx, y + dy)
-            
-            self.drag_offset_x = event.x
-            self.drag_offset_y = event.y
-            self.draw_edges()
+            self.ax.annotate(
+                "",
+                xy=(x2, y2),
+                xytext=(x1, y1),
+                arrowprops=dict(arrowstyle="->", color="red", lw=2)
+            )
 
+        self.ax.set_title("Scenario Graph Visualization")
+        self.ax.axis("off")  # Вимикаємо координатні осі
+        self.fig.canvas.draw()
+
+    def on_scroll(self, event):
+        """Масштабування графа колесом миші."""
+        scale_factor = 1.1 if event.step > 0 else 0.9
+        xlim = self.ax.get_xlim()
+        ylim = self.ax.get_ylim()
+        self.ax.set_xlim([x * scale_factor for x in xlim])
+        self.ax.set_ylim([y * scale_factor for y in ylim])
+        self.fig.canvas.draw()
+
+    def run(self):
+        """Запускає візуалізацію."""
+        if not self.data:
+            return
+        
+        self.build_graph()
+        self.draw_graph()
+
+        # Додаємо обробник масштабування
+        self.fig.canvas.mpl_connect("scroll_event", self.on_scroll)
+
+        plt.show()
+
+# Запуск програми
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = ScenarioVisualizer(root)
-    root.mainloop()
+    visualizer = ScenarioVisualizer()
+    visualizer.run()
